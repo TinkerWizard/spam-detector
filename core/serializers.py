@@ -28,7 +28,13 @@ class PersonalContactSerializer(serializers.ModelSerializer):
         fields = ['id', 'contact_name', 'contact_phone', 'created_at']
 
 class SpamReportSerializer(serializers.ModelSerializer):
+    phone = serializers.CharField(write_only=True)
+    
     class Meta:
         model = SpamReport
-        fields = ['id', 'reported_by', 'phone', 'timestamp']
-        read_only_fields = ['id', 'reported_by', 'timestamp']
+        fields = ['phone']
+    
+    def create(self, validated_data):
+        # Just use the phone number directly as intended in the model
+        # No need to look up a user by phone
+        return SpamReport.objects.create(**validated_data)

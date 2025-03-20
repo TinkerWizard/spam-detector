@@ -2,6 +2,9 @@ from django.forms import ValidationError
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions
 from rest_framework import serializers
+from rest_framework.response import Response
+from rest_framework import status
+from core.utils import update_spam_likelihood
 from .models import PersonalContacts, SpamReport, AllUsers
 from .serializers import SearchSerializer, SearchDetailSerializer, PersonalContactSerializer, SpamReportSerializer
 from django.apps import apps
@@ -82,24 +85,19 @@ class PersonalContactView(generics.ListAPIView):
 
         return PersonalContacts.objects.filter(owner=all_users_instance)
 
-
 class SpamReportView(generics.CreateAPIView):
-    """
-    View to allow users to report phone numbers as spam.
-    """
-    queryset = SpamReport.objects.all()
     serializer_class = SpamReportSerializer
     permission_classes = [permissions.IsAuthenticated]
-
+    
     def perform_create(self, serializer):
-        AllUsers = apps.get_model('core', 'AllUsers')
+        phone_number = self.request.data.get("phone")
+        if not phone_number:
+            raise ValidationError({"error": "Phone number is required."})
+        
         try:
-            all_users_instance = AllUsers.objects.get(id=self.request.user.id)
+            reporting_user = AllUsers.objects.get(phone=self.request.user.phone)
         except AllUsers.DoesNotExist:
-            raise serializers.ValidationError({"error": "User not found in AllUsers database."})
-
-        phone = self.request.data.get("phone")
-        if SpamReport.objects.filter(reported_by=all_users_instance, phone=phone).exists():
-            raise serializers.ValidationError({"error": "You have already reported this number as spam."})
-
-        serializer.save(reported_by=all_users_instance)
+            raise ValidationError({"error": "Your user record was not found in the AllUsers table."})
+        
+        # Save both the reporting user and the phone number
+        serializer.save(reported_by=reporting_user, phone=phone_number)
