@@ -24,6 +24,7 @@ class LoginView(generics.GenericAPIView):
         if user is not None:
             refresh = RefreshToken.for_user(user)
             return Response({
+                'name':user.__str__(),
                 'refresh': str(refresh),
                 'access': str(refresh.access_token)
             })

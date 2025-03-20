@@ -1,5 +1,8 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
+from core.models import AllUsers
+from django.dispatch import receiver
+from django.db.models.signals import post_save
 
 class UserManager(BaseUserManager):
     def create_user(self, name, phone, email, password=None):
@@ -14,24 +17,29 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, name, phone, email, password):
-        user = self.create_user(name, phone, email, password)
-        user.is_staff = True
-        user.is_superuser = True
-        user.save(using=self._db)
-        return user
-
-class User(AbstractBaseUser, PermissionsMixin):
+class User(AbstractBaseUser):
+    id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255)
-    phone = models.CharField(max_length=15, unique=True)
-    email = models.EmailField(unique=True)
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
+    phone = models.BigIntegerField(unique=True, null=False)
+    email = models.EmailField(blank=True)
 
+    # last_login is not needed. so, it is set to none.
+    last_login = None
     objects = UserManager()
 
     USERNAME_FIELD = 'phone'
-    REQUIRED_FIELDS = ['name', 'email']
+    REQUIRED_FIELDS = ['name']
 
     def __str__(self):
-        return self.phone
+        return f"Name: {self.name}, Phone: {self.phone}"
+
+
+@receiver(post_save, sender=User)
+def create_all_users_entry(sender, instance, created, **kwargs):
+    if created:
+        AllUsers.objects.create(
+            name=instance.name,
+            phone=instance.phone,   
+            email=instance.email,
+            is_registered=True
+        )
