@@ -1,43 +1,37 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 
-
-class AllUsersManager(BaseUserManager):
-    def create_user(self, phone, name, password=None, email=None):
+class UserManager(BaseUserManager):
+    def create_user(self, name, phone, email, password=None):
         if not phone:
-            raise ValueError("Users must have a phone number")
-        
-        user = self.model(phone=phone, name=name, email=self.normalize_email(email))
+            raise ValueError('Users must have a phone number')
+        if not email:
+            raise ValueError('Users must have an email address')
+
+        email = self.normalize_email(email)
+        user = self.model(name=name, phone=phone, email=email)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, phone, name, password):
-        user = self.create_user(phone=phone, name=name, password=password)
-        user.is_admin = True
+    def create_superuser(self, name, phone, email, password):
+        user = self.create_user(name, phone, email, password)
+        user.is_staff = True
         user.is_superuser = True
         user.save(using=self._db)
         return user
 
-
-class AllUsers(AbstractBaseUser, PermissionsMixin):
-    id = models.AutoField(primary_key=True, editable=False)
+class User(AbstractBaseUser, PermissionsMixin):
     name = models.CharField(max_length=255)
     phone = models.CharField(max_length=15, unique=True)
-    email = models.EmailField(blank=True, null=True)
-    password = models.CharField(max_length=255, null=True, blank=True)
-    is_registered = models.BooleanField(default=False)
+    email = models.EmailField(unique=True)
     is_active = models.BooleanField(default=True)
-    is_admin = models.BooleanField(default=False)
+    is_staff = models.BooleanField(default=False)
 
-    objects = AllUsersManager()
+    objects = UserManager()
 
     USERNAME_FIELD = 'phone'
-    REQUIRED_FIELDS = ['name']
+    REQUIRED_FIELDS = ['name', 'email']
 
     def __str__(self):
-        return f"{self.name} ({'Registered' if self.is_registered else 'Contact'})"
-
-    @property
-    def is_staff(self):
-        return self.is_admin
+        return self.phone
